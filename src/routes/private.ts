@@ -6,7 +6,6 @@ import {
   sensorDataTable,
   sensorTable
 } from '../db/schema';
-import { promises } from 'dns';
 
 const router = express.Router();
 
@@ -359,7 +358,7 @@ router.get('/sensor/:sensorId/alerts', async (req: AuthenticatedRequest,res: Res
   }
 })
 // buscar um alerta especifico
-router.get('/alerts/:alertId', async (req: AuthenticatedRequest,res: Response): Promise<any> =>{
+router.get('/sensors/:sensorId/alerts/:alertId', async (req: AuthenticatedRequest,res: Response): Promise<any> =>{
   try{
     const { sensorId,alertId } = req.params
     const userId = req.userId!
