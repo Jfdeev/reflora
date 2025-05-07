@@ -2,9 +2,11 @@ import { and, eq } from 'drizzle-orm';
 import express, { Request, Response } from 'express';
 import { db } from '../db/db';
 import {
+  alertTable,
   sensorDataTable,
   sensorTable
 } from '../db/schema';
+import { promises } from 'dns';
 
 const router = express.Router();
 
@@ -289,5 +291,183 @@ router.delete('/sensors/:sensorId/data/:dataId', async (req: AuthenticatedReques
     return handleError(res, ERROR_SERVER);
   }
 });
+//cadastrar alerta em um sensorId
+router.post('/sensors/:sensorId/alert', async (req: AuthenticatedRequest,res : Response): Promise<any> =>{
+  try{
+    const { sensorId } = req.params
+    const  userId  = req.userId!
+    const {message , level} = req.body
 
+    if(!message ||!level){
+      return res.status(400).json({message:ERROR_MISSING_FIELDS})
+    }
+    const sensorIdNumber = Number(sensorId);
+    if(isNaN(sensorIdNumber)){
+      return res.status(400).json({message : 'sensorId invalido'})
+    }
+    const [sensor] = await db
+    .select()
+    .from(sensorTable)
+    .where(and(eq(sensorTable.sensorId, sensorIdNumber), eq(sensorTable.userId, userId)))
+    .execute();
+    
+    if (!sensor) {
+      return res.status(404).json({ message: ERROR_INVALID_SENSOR });
+    }
+    await db.insert(alertTable).values({
+      sensorId :sensorIdNumber,
+      message,
+      level,
+    }).execute()
+    return res.status(201).json({message:'Alerta cadastrado com sucesso'})
+  }catch(error){
+    return handleError(res,ERROR_SERVER);
+  }
+})
+//Listar todos os Alertas de um sensor
+router.get('/sensor/:sensorId/alerts', async (req: AuthenticatedRequest,res: Response): Promise<any> =>{
+
+  try{
+    const { sensorId } = req.params
+  const userId = req.userId!
+
+  const sensorIdNumber = Number(sensorId)
+  if(isNaN(sensorIdNumber)){
+    return res.status(400).json({message: 'sensorId invalido'})
+  }
+  const [sensor] = await db
+  .select()
+  .from(sensorTable)
+  .where(and(eq(sensorTable.sensorId, sensorIdNumber), eq(sensorTable.userId, userId)))
+  .execute();
+
+  if (!sensor) {
+    return res.status(404).json({ message: ERROR_INVALID_SENSOR });
+  }
+  const alert = await db
+  .select()
+  .from(alertTable)
+  .where(eq(alertTable.sensorId,sensorIdNumber))
+  .execute()
+
+  if(alert.length === 0){
+    return res.status(404).json({message : 'Nenhum alerta encontrado para este sensor'})
+  }
+  return res.status(200).json(alert)
+  }catch(error){
+    return handleError(res,ERROR_SERVER)
+  }
+})
+// buscar um alerta especifico
+router.get('/alerts/:alertId', async (req: AuthenticatedRequest,res: Response): Promise<any> =>{
+  try{
+    const { sensorId,alertId } = req.params
+    const userId = req.userId!
+
+    const sensorIdNumber = Number(sensorId)
+    const alertIdNumber = Number(alertId)
+
+    if(isNaN(sensorIdNumber)|| isNaN(alertIdNumber)){
+      return res.status(400).json({message : 'sensorId ou alertId invalido'})
+    }
+    const [sensor] = await db
+    .select()
+    .from(sensorTable)
+    .where(and(eq(sensorTable.sensorId, sensorIdNumber), eq(sensorTable.userId, userId)))
+    .execute();
+    if (!sensor) {
+      return res.status(404).json({ message: ERROR_INVALID_SENSOR });
+    }
+    const [alert] = await db
+    .select()
+    .from(alertTable)
+    .where(and(eq(alertTable.alertId, alertIdNumber), eq(alertTable.sensorId, sensorIdNumber)))
+    .execute();
+
+    if(!alert){
+      return res.status(404).json({message: 'alerta nao encontrado para este sensor'})
+    }
+    return res.status(200).json(alert)
+  }catch(error){
+    return handleError(res,ERROR_SERVER)
+  }
+})
+//Atualizar um alerta
+router.put('/alert/:alertId', async (req:AuthenticatedRequest,res: Response) : Promise<any> =>{
+  try{
+    const { alertId } = req.params
+    const userId = req.userId!
+    const { message,level } = req.body
+
+    const alertIdNumber = Number(alertId)
+    if(isNaN(alertIdNumber)){
+      return res.status(400).json({message : 'alertId invalido'})
+    }
+    
+    if(!message || !level){
+      return res.status(400).json({message : ERROR_MISSING_FIELDS})
+    }
+
+    const [alert] = await db
+    .select()
+    .from(alertTable)
+    .innerJoin(sensorTable, eq(alertTable.sensorId, sensorTable.sensorId))
+    .where(and(eq(alertTable.alertId, alertIdNumber), eq(sensorTable.userId, userId)))
+    .execute();
+
+  if (!alert) {
+    return res.status(404).json({ message: 'Alerta não encontrado ou não pertence ao usuário' });
+  }
+
+  const result = await db
+  .update(alertTable)
+  .set({message,level})
+  .where(eq(alertTable.alertId,alertIdNumber))
+  .execute()
+
+  if(result.rowCount ===0){
+    return res.status(404).json({message :'Falha ao atualizar o alerta'})
+  }
+
+  return res.status(200).json({message: 'Alerta atualizado com sucesso'})
+  }catch(error){
+    return handleError(res,ERROR_SERVER)
+  }
+})
+// deletar um alerta especifico
+router.delete('/alert/:alertId', async (req: AuthenticatedRequest,res: Response): Promise<any> =>{
+  try{
+    const { alertId } = req.params
+    const userId = req.userId!
+
+    const alertIdNumber = Number(alertId)
+    if(isNaN(alertIdNumber)){
+      return res.status(400).json({message : 'alertId invalido'})
+    }
+
+    const [alert] = await db
+    .select()
+    .from(alertTable)
+    .innerJoin(sensorTable,eq(alertTable.sensorId,sensorTable.sensorId))
+    .where(and(eq(alertTable.alertId,alertIdNumber),eq(sensorTable.userId,userId)))
+    .execute()
+
+    if(!alert){
+      return res.status(404).json({message : 'Alerta nao encontrado ou nao pertence ao usuario'})
+    }
+
+    const result = await db
+      .delete(alertTable)
+      .where(eq(alertTable.alertId, alertIdNumber))
+      .execute();
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ message: 'Falha ao deletar o alerta' });
+    }
+
+    return res.status(404).json({message : 'Alerta deletado'})
+  }catch(error){
+    return handleError(res,ERROR_SERVER)
+  }
+})
 export default router;
