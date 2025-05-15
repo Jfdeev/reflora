@@ -1,4 +1,4 @@
-import { and, eq } from 'drizzle-orm';
+import { and, eq, isNull } from 'drizzle-orm';
 import express, { Request, Response } from 'express';
 import { db } from '../db/db';
 import {
@@ -40,6 +40,41 @@ router.post('/sensors', async (req: AuthenticatedRequest, res: Response): Promis
       .execute();
 
     return res.status(201).json({ message: 'Sensor cadastrado com sucesso' });
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
+
+// Conectar sensor a um usuário
+router.patch('/sensors/:sensorId/assign', async (req:AuthenticatedRequest, res:Response): Promise<any> => {
+  try {
+    const {sensorId} = req.params;
+    const userId = req.userId!;
+  
+    if(!userId){
+      return res.status(400).json({message: 'userId não encontrado'})
+    }
+  
+    if(isNaN(Number(sensorId))){
+      return res.status(400).json({message: 'sensorId inválido'})
+    }
+  
+    const [sensor] = await db
+      .select()
+      .from(sensorTable)
+      .where(and(eq(sensorTable.sensorId, Number(sensorId)), isNull(sensorTable.userId)))
+      .execute();
+  
+    if(!sensor){
+      return res.status(404).json({message: 'Sensor não encontrado ou já atribuído a um usuário'})
+    }
+  
+    await db
+      .update(sensorTable)
+      .set({userId})
+      .where(eq(sensorTable.sensorId, Number(sensorId)));
+  
+    return res.status(200).json({message: 'Sensor atribuído ao usuário com sucesso'});
   } catch (error) {
     return handleError(res, ERROR_SERVER);
   }
@@ -290,39 +325,51 @@ router.delete('/sensors/:sensorId/data/:dataId', async (req: AuthenticatedReques
     return handleError(res, ERROR_SERVER);
   }
 });
-//cadastrar alerta em um sensorId
-router.post('/sensors/:sensorId/alert', async (req: AuthenticatedRequest,res : Response): Promise<any> =>{
-  try{
-    const { sensorId } = req.params
-    const  userId  = req.userId!
-    const {message , level} = req.body
+// Cadastrar alerta em um sensorId
+router.post('/sensors/:sensorId/alert', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const sensorId = Number(req.params.sensorId);
+    const userId = req.userId!;
+    const { message, level } = req.body;
 
-    if(!message ||!level){
-      return res.status(400).json({message:ERROR_MISSING_FIELDS})
+    // Validação dos campos obrigatórios
+    if (!message || !level) {
+      return res.status(400).json({ message: ERROR_MISSING_FIELDS });
     }
-    const sensorIdNumber = Number(sensorId);
-    if(isNaN(sensorIdNumber)){
-      return res.status(400).json({message : 'sensorId invalido'})
+
+    // Validação do sensorId
+    if (isNaN(sensorId)) {
+      return res.status(400).json({ message: 'sensorId inválido' });
     }
+
+    // Verificar se o sensor pertence ao usuário
     const [sensor] = await db
-    .select()
-    .from(sensorTable)
-    .where(and(eq(sensorTable.sensorId, sensorIdNumber), eq(sensorTable.userId, userId)))
-    .execute();
-    
+      .select()
+      .from(sensorTable)
+      .where(and(eq(sensorTable.sensorId, sensorId), eq(sensorTable.userId, userId)))
+      .execute();
+
     if (!sensor) {
       return res.status(404).json({ message: ERROR_INVALID_SENSOR });
     }
-    await db.insert(alertTable).values({
-      sensorId :sensorIdNumber,
-      message,
-      level,
-    }).execute()
-    return res.status(201).json({message:'Alerta cadastrado com sucesso'})
-  }catch(error){
-    return handleError(res,ERROR_SERVER);
+
+    // Inserir alerta
+    await db
+      .insert(alertTable)
+      .values({
+        sensorId,
+        message,
+        level,
+        timestamp: new Date()
+      })
+      .execute();
+
+    return res.status(201).json({ message: 'Alerta cadastrado com sucesso' });
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
   }
-})
+});
+
 //Listar todos os Alertas de um sensor
 router.get('/sensor/:sensorId/alerts', async (req: AuthenticatedRequest,res: Response): Promise<any> =>{
 
