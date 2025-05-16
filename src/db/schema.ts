@@ -41,12 +41,13 @@ export const sensorTable = pgTable(
 export const sensorDataTable = pgTable('sensor_data', {
   sensorDataId: serial('sensor_data_id').primaryKey(),
   sensorId: integer('sensor_id').references(() => sensorTable.sensorId),
-  ph: real('ph'),
-  shadingIndex: real('shading_index'),
-  airHumidity: real('air_humidity'),
   soilHumidity: real('soil_humidity'),
-  soilNutrients: text('soil_nutrients'),
   temperature: real('temperature'),
+  condutivity: real('conductivity'),
+  ph: real('ph'),
+  nitrogen: real('nitrogen'),
+  phosphorus: real('phosphorus'),
+  potassium: real('potassium'),
   dateTime: timestamp('date_time').defaultNow(),
 }, (table) => ({
   fkSensor: foreignKey({

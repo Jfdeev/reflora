@@ -173,7 +173,7 @@ router.post('/sensors/:sensorId/data', async (req: AuthenticatedRequest, res: Re
   try {
     const sensorId = Number(req.params.sensorId);
     const userId = req.userId!;
-    const { ph, shadingIndex, airHumidity, soilHumidity, soilNutrients, temperature } = req.body;
+    const { soilHumidity, temperature, condutivity, ph, nitrogen, phosphorus, potassium } = req.body;
 
     const [sensor] = await db
       .select()
@@ -189,12 +189,13 @@ router.post('/sensors/:sensorId/data', async (req: AuthenticatedRequest, res: Re
       .insert(sensorDataTable)
       .values({
         sensorId,
-        ph,
-        shadingIndex,
-        airHumidity,
         soilHumidity,
-        soilNutrients,
         temperature,
+        condutivity,
+        ph,
+        nitrogen,
+        phosphorus,
+        potassium,
         dateTime: new Date(),
       })
       .execute();
@@ -276,7 +277,7 @@ router.put('/sensors/:sensorId/data/:dataId', async (req: AuthenticatedRequest, 
     const sensorId = Number(req.params.sensorId);
     const dataId = Number(req.params.dataId);
     const userId = req.userId!;
-    const { ph, shadingIndex, airHumidity, soilHumidity, soilNutrients, temperature } = req.body;
+    const { soilHumidity, temperature, condutivity, ph, nitrogen, phosphorus, potassium } = req.body;
 
     const [sensor] = await db
       .select()
@@ -290,7 +291,7 @@ router.put('/sensors/:sensorId/data/:dataId', async (req: AuthenticatedRequest, 
 
     const result = await db
       .update(sensorDataTable)
-      .set({ ph, shadingIndex, airHumidity, soilHumidity, soilNutrients, temperature })
+      .set({ soilHumidity, temperature, condutivity, ph, nitrogen, phosphorus, potassium })
       .where(and(eq(sensorDataTable.sensorDataId, dataId), eq(sensorDataTable.sensorId, sensorId)))
       .execute();
 

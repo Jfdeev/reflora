@@ -77,11 +77,11 @@ router.post('/login', async (req: Request, res: Response) : Promise<any> => {
     const user = selectedUser[0];
     const token = jwt.sign({ id: user.userId }, JWT_SECRET!, { expiresIn: '1h' });
 
-res.status(200).json({
-  token,
-  name: user.name,
-  email: user.email,
-});
+    res.status(200).json({
+      token,
+      name: user.name,
+      email: user.email,
+    });
   } catch (error) {
     handleError(res, ERROR_SERVER);
   }
