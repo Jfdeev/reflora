@@ -39,7 +39,15 @@ router.post('/register', async (req: Request, res: Response):Promise<any> => {
       password: hashPassword,
     }).returning().execute();
 
-    res.status(201).json(userDb);
+const user = userDb[0];
+
+const token = jwt.sign({ id: user.userId }, JWT_SECRET!, { expiresIn: '1h' });
+
+res.status(201).json({
+  token,
+  name: user.name,
+  email: user.email,
+});
   } catch (error) {
     handleError(res, ERROR_SERVER);
   }
@@ -66,9 +74,14 @@ router.post('/login', async (req: Request, res: Response) : Promise<any> => {
       return res.status(401).json({ message: ERROR_INVALID_CREDENTIALS });
     }
 
-    const token = jwt.sign({ id: selectedUser[0].userId }, JWT_SECRET!, { expiresIn: '1h' });
+    const user = selectedUser[0];
+    const token = jwt.sign({ id: user.userId }, JWT_SECRET!, { expiresIn: '1h' });
 
-    res.status(200).json({ token });
+res.status(200).json({
+  token,
+  name: user.name,
+  email: user.email,
+});
   } catch (error) {
     handleError(res, ERROR_SERVER);
   }
