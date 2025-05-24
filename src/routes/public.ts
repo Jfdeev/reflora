@@ -50,7 +50,6 @@ router.post('/webhook/sensors/data', async (req: Request, res: Response): Promis
       nitrogen,
       phosphorus,
       potassium,
-      dateTime: new Date(),
     }).execute();
 
     return res.status(201).json({ message: 'Dados recebidos com sucesso' });
