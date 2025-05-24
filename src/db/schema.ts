@@ -27,6 +27,7 @@ export const sensorTable = pgTable(
     sensorName: varchar('sensor_name', { length: 255 }),
     location: varchar('location', { length: 255 }),
     installationDate: timestamp('installation_date'),
+    webhookToken: varchar('weebhook_token', { length: 255 }).unique(), // nova coluna
   },
   (table) => ({
     fkUser: foreignKey({

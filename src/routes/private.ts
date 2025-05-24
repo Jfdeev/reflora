@@ -76,6 +76,7 @@ router.patch('/sensors/:sensorId/assign', async (req:AuthenticatedRequest, res:R
   
     return res.status(200).json({message: 'Sensor atribuído ao usuário com sucesso'});
   } catch (error) {
+    console.error(error);
     return handleError(res, ERROR_SERVER);
   }
 });
@@ -143,6 +144,7 @@ router.put('/sensors/:sensorId', async (req: AuthenticatedRequest, res: Response
 
     return res.status(200).json({ message: 'Sensor atualizado com sucesso' });
   } catch (error) {
+    console.error(error);
     return handleError(res, ERROR_SERVER);
   }
 });

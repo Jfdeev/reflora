@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm';
 import express, { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../db/db';
-import { userTable } from '../db/schema';
+import { sensorDataTable, sensorTable, userTable } from '../db/schema';
 
 const router = express.Router();
 
@@ -20,6 +20,44 @@ const handleError = (res: Response, message: string, statusCode = 500) => {
   console.error(message);
   return res.status(statusCode).json({ message });
 };
+
+router.post('/webhook/sensors/data', async (req: Request, res: Response): Promise<any> => {
+  try {
+    const token = req.query.token as string;
+
+    if (!token) {
+      return res.status(401).json({ message: 'Token ausente' });
+    }
+
+    const [sensor] = await db
+      .select()
+      .from(sensorTable)
+      .where(eq(sensorTable.webhookToken, token))
+      .execute();
+
+    if (!sensor) {
+      return res.status(403).json({ message: 'Token inválido' });
+    }
+
+    const { soilHumidity, temperature, condutivity, ph, nitrogen, phosphorus, potassium } = req.body;
+
+    await db.insert(sensorDataTable).values({
+      sensorId: sensor.sensorId,
+      soilHumidity,
+      temperature,
+      condutivity,
+      ph,
+      nitrogen,
+      phosphorus,
+      potassium,
+      dateTime: new Date(),
+    }).execute();
+
+    return res.status(201).json({ message: 'Dados recebidos com sucesso' });
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
 
 // Cadastro de usuário
 router.post('/register', async (req: Request, res: Response):Promise<any> => {
