@@ -4,7 +4,8 @@ import { db } from '../db/db';
 import {
   alertTable,
   sensorDataTable,
-  sensorTable
+  sensorTable,
+  userTable,
 } from '../db/schema';
 
 const router = express.Router();
@@ -25,6 +26,48 @@ const handleError = (res: Response, message: string, statusCode = 500) => {
   console.error(message);
   return res.status(statusCode).json({ message });
 };
+
+// Atualizar informações do usuário
+router.put('/user', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const userId = req.userId;
+    const { name, email } = req.body;
+
+    if (!userId || !name || !email) {
+      return res.status(400).json({ message: ERROR_MISSING_FIELDS });
+    }
+
+    await db
+      .update(userTable)
+      .set({ name, email })
+      .where(eq(userTable.userId, userId))
+      .execute();
+
+    return res.status(200).json({ message: 'Usuário atualizado com sucesso' });
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
+
+// Deletar usuário
+router.delete('/user', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
+  try {
+    const userId = req.userId;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'userId não encontrado' });
+    }
+
+    await db
+      .delete(userTable)
+      .where(eq(userTable.userId, userId))
+      .execute();
+
+    return res.status(200).json({ message: 'Usuário deletado com sucesso' });
+  } catch (error) {
+    return handleError(res, ERROR_SERVER);
+  }
+});
 
 // Cadastrar sensor
 router.post('/sensors', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
