@@ -11,8 +11,6 @@ O objetivo principal do projeto é fornecer uma infraestrutura escalável e efic
 - **Express** – Framework web para criação de rotas e controle de requisições.
 - **Drizzle ORM** – ORM moderno e leve para comunicação com o banco de dados.
 - **PostgreSQL** – Banco de dados relacional para armazenamento dos dados dos sensores.
-- **Vite** – Utilizado para configurações de ferramentas auxiliares e ambiente de desenvolvimento.
-- **Tailwind CSS** – Utilizado em interfaces complementares, se necessário.
 
 ## 📱 Integração com Aplicativo
 
