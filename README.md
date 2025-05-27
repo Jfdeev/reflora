@@ -19,28 +19,28 @@ Os dados recebidos pela API serão consumidos por um **aplicativo em React Nativ
 ## 📂 Estrutura do Projeto
 
 reflora/
-├── dist/                    # Arquivos compilados
-│   ├── index.js
-│   ├── index.d.ts
-│   ├── index.d.mts
-│   └── index.mjs
-├── node_modules/
-├── src/                     # Código-fonte principal
-│   ├── db/                  # Configurações do Drizzle ORM
-│   │   ├── db.ts            # Conexão e instância do drizzle
-│   │   └── schema.ts        # Definição das tabelas
-│   ├── middlewares/         # Middlewares personalizados
-│   │   └── auth.ts          # Middleware de autenticação
-│   ├── routes/              # Definição de rotas da API
-│   │   ├── private.ts       # Rotas protegidas (autenticadas)
-│   │   ├── public.ts        # Rotas públicas (login, cadastro, etc.)
-│   │   └── index.ts         # Agrega e exporta as rotas
-│   └── index.ts             # Entrada principal do servidor
-├── .env                     # Variáveis de ambiente
-├── .gitignore
-├── drizzle.config.ts        # Configuração do Drizzle
-├── package.json
-├── package-lock.json
-├── tsconfig.json            # Configurações do TypeScript
-└── README.md
+├── dist/                    # Arquivos compilados  
+│   ├── index.js  
+│   ├── index.d.ts  
+│   ├── index.d.mts  
+│   └── index.mjs  
+├── node_modules/  
+├── src/                     # Código-fonte principal  
+│   ├── db/                  # Configurações do Drizzle ORM  
+│   │   ├── db.ts            # Conexão e instância do drizzle  
+│   │   └── schema.ts        # Definição das tabelas  
+│   ├── middlewares/         # Middlewares personalizados  
+│   │   └── auth.ts          # Middleware de autenticação  
+│   ├── routes/              # Definição de rotas da API  
+│   │   ├── private.ts       # Rotas protegidas (autenticadas)  
+│   │   ├── public.ts        # Rotas públicas (login, cadastro, etc.)  
+│   │   └── index.ts         # Agrega e exporta as rotas  
+│   └── index.ts             # Entrada principal do servidor  
+├── .env                     # Variáveis de ambiente  
+├── .gitignore  
+├── drizzle.config.ts        # Configuração do Drizzle  
+├── package.json  
+├── package-lock.json  
+├── tsconfig.json            # Configurações do TypeScript  
+└── README.md  
 
