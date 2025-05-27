@@ -4,9 +4,9 @@ import { db } from '../db/db';
 import {
   alertTable,
   sensorDataTable,
-  sensorTable,
-  userTable,
+  sensorTable
 } from '../db/schema';
+import auth from '../middlewares/auth';
 
 const router = express.Router();
 
@@ -21,53 +21,23 @@ interface AuthenticatedRequest extends Request {
   userId?: number;
 }
 
+type Metric = 'soilHumidity' | 'temperature' | 'condutivity' | 'ph' | 'nitrogen' | 'phosphorus' | 'potassium';
+
+const thresholds: Record<Metric, { ideal: [number, number]; intermediate: [number, number][] }> = {
+  soilHumidity: { ideal: [20, 60], intermediate: [[15, 20], [60, 65]] },
+  temperature:  { ideal: [18, 30], intermediate: [[15, 18], [30, 33]] },
+  condutivity:  { ideal: [0.2, 2.0], intermediate: [[0.15, 0.2], [2.0, 2.5]] },
+  ph:           { ideal: [6.0, 7.0], intermediate: [[5.5, 6.0], [7.0, 7.5]] },
+  nitrogen:     { ideal: [20, 50], intermediate: [[15, 20], [50, 60]] },
+  phosphorus:   { ideal: [15, 40], intermediate: [[10, 15], [40, 50]] },
+  potassium:    { ideal: [100, 300], intermediate: [[80, 100], [300, 350]] },
+};
+
 // Função para tratar erros
 const handleError = (res: Response, message: string, statusCode = 500) => {
   console.error(message);
   return res.status(statusCode).json({ message });
 };
-
-// Atualizar informações do usuário
-router.put('/user', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
-  try {
-    const userId = req.userId;
-    const { name, email } = req.body;
-
-    if (!userId || !name || !email) {
-      return res.status(400).json({ message: ERROR_MISSING_FIELDS });
-    }
-
-    await db
-      .update(userTable)
-      .set({ name, email })
-      .where(eq(userTable.userId, userId))
-      .execute();
-
-    return res.status(200).json({ message: 'Usuário atualizado com sucesso' });
-  } catch (error) {
-    return handleError(res, ERROR_SERVER);
-  }
-});
-
-// Deletar usuário
-router.delete('/user', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
-  try {
-    const userId = req.userId;
-
-    if (!userId) {
-      return res.status(400).json({ message: 'userId não encontrado' });
-    }
-
-    await db
-      .delete(userTable)
-      .where(eq(userTable.userId, userId))
-      .execute();
-
-    return res.status(200).json({ message: 'Usuário deletado com sucesso' });
-  } catch (error) {
-    return handleError(res, ERROR_SERVER);
-  }
-});
 
 // Cadastrar sensor
 router.post('/sensors', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
@@ -213,43 +183,77 @@ router.delete('/sensors/:sensorId', async (req: AuthenticatedRequest, res: Respo
   }
 });
 
-// Inserir dados em um sensor
-router.post('/sensors/:sensorId/data', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
-  try {
-    const sensorId = Number(req.params.sensorId);
-    const userId = req.userId!;
-    const { soilHumidity, temperature, condutivity, ph, nitrogen, phosphorus, potassium } = req.body;
+// Inserir dados em um sensor e lancar alerta se nessesário 
+router.post(
+  '/sensors/:sensorId/data',
+  auth,  // autenticação JWT
+  async (req: Request, res: Response): Promise<any> => {
+    try {
+      const sensorId = Number(req.params.sensorId);
+      const userId = req.userId!;
+      const { soilHumidity, temperature, condutivity, ph, nitrogen, phosphorus, potassium } = req.body;
 
-    const [sensor] = await db
-      .select()
-      .from(sensorTable)
-      .where(and(eq(sensorTable.sensorId, sensorId), eq(sensorTable.userId, userId)))
-      .execute();
+      // Validação dos campos obrigatórios: checar null ou undefined
+      if (
+        soilHumidity == null ||
+        temperature  == null ||
+        condutivity  == null ||
+        ph           == null ||
+        nitrogen     == null ||
+        phosphorus   == null ||
+        potassium    == null
+      ) {
+        return res.status(400).json({ message: ERROR_MISSING_FIELDS });
+      }
 
-    if (!sensor) {
-      return res.status(404).json({ message: ERROR_INVALID_SENSOR });
+      // Verificar se o sensor existe e pertence ao usuário
+      const [sensor] = await db
+        .select()
+        .from(sensorTable)
+        .where(and(eq(sensorTable.sensorId, sensorId), eq(sensorTable.userId, userId)))
+        .execute();
+      if (!sensor) {
+        return res.status(404).json({ message: ERROR_INVALID_SENSOR });
+      }
+
+      // Inserir dados do sensor
+      await db
+        .insert(sensorDataTable)
+        .values({ sensorId, soilHumidity, temperature, condutivity, ph, nitrogen, phosphorus, potassium, dateTime: new Date() })
+        .execute();
+
+      // Gerar alertas conforme thresholds
+      const metrics: Record<Metric, number> = { soilHumidity, temperature, condutivity, ph, nitrogen, phosphorus, potassium };
+      const generatedAlerts: Array<{ metric: Metric; level: string; message: string }> = [];
+
+      for (const metric of Object.keys(metrics) as Metric[]) {
+        const value = metrics[metric];
+        const { ideal, intermediate } = thresholds[metric];
+        let level: string;
+
+        if (value >= ideal[0] && value <= ideal[1]) {
+          continue; // OK
+        } else if (intermediate.some(([min, max]) => value >= min && value <= max)) {
+          level = 'Alerta';
+        } else {
+          level = 'Crítico';
+        }
+
+        const message = `${metric} fora do intervalo ideal (${value})`;
+        // Salvar alerta no DB
+        await db.insert(alertTable).values({ sensorId, message, level, timestamp: new Date() }).execute();
+        generatedAlerts.push({ metric, level, message });
+      }
+
+      return res.status(201).json({
+        message: 'Dados inseridos e alertas gerados',
+        alerts: generatedAlerts,
+      });
+    } catch (error) {
+      return handleError(res, ERROR_SERVER);
     }
-
-    await db
-      .insert(sensorDataTable)
-      .values({
-        sensorId,
-        soilHumidity,
-        temperature,
-        condutivity,
-        ph,
-        nitrogen,
-        phosphorus,
-        potassium,
-        dateTime: new Date(),
-      })
-      .execute();
-
-    return res.status(201).json({ message: 'Dados do sensor adicionados com sucesso' });
-  } catch (error) {
-    return handleError(res, ERROR_SERVER);
   }
-});
+);
 
 // Listar todos os dados de um sensor
 router.get('/sensors/:sensorId/data', async (req: AuthenticatedRequest, res: Response): Promise<any> => {
@@ -557,7 +561,7 @@ router.delete('/alert/:alertId', async (req: AuthenticatedRequest,res: Response)
       return res.status(404).json({ message: 'Falha ao deletar o alerta' });
     }
 
-    return res.status(404).json({message : 'Alerta deletado'})
+    return res.status(200).json({message : 'Alerta deletado'})
   }catch(error){
     return handleError(res,ERROR_SERVER)
   }
