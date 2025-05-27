@@ -39,7 +39,7 @@ router.post('/webhook/sensors/data', async (req: Request, res: Response): Promis
       return res.status(403).json({ message: 'Token inválido' });
     }
 
-    const { sensor_id,
+    const {
       soilHumidity,
       level_humidity,
       temperature,
@@ -56,7 +56,7 @@ router.post('/webhook/sensors/data', async (req: Request, res: Response): Promis
       level_potassium } = req.body;
 
     await db.insert(sensorDataTable).values({
-      sensorId: sensor_id,
+      sensorId: sensor.sensorId,
 
       soilHumidity,
       levelHumidity: level_humidity,
