@@ -293,6 +293,7 @@ router.post(
         alerts: generatedAlerts,
       });
     } catch (error) {
+      console.log(error);
       return handleError(res, ERROR_SERVER);
     }
   }
@@ -326,6 +327,7 @@ router.get('/sensors/:sensorId/data', async (req: AuthenticatedRequest, res: Res
 
     return res.status(200).json(data);
   } catch (error) {
+    console.error(error);
     return handleError(res, ERROR_SERVER);
   }
 });

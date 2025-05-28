@@ -3,6 +3,7 @@ import { eq } from 'drizzle-orm';
 import express, { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { db } from '../db/db';
+import { alertTable } from '../db/schema';
 import { sensorDataTable, sensorTable, userTable } from '../db/schema';
 
 const router = express.Router();
@@ -53,11 +54,12 @@ router.post('/webhook/sensors/data', async (req: Request, res: Response): Promis
       phosphorus,
       level_phosphorus,
       potassium,
-      level_potassium } = req.body;
+      level_potassium,
+    } = req.body;
 
+    // 1. Inserir dados
     await db.insert(sensorDataTable).values({
       sensorId: sensor.sensorId,
-
       soilHumidity,
       levelHumidity: level_humidity,
       temperature,
@@ -74,7 +76,36 @@ router.post('/webhook/sensors/data', async (req: Request, res: Response): Promis
       levelPotassium: level_potassium,
     }).execute();
 
-    return res.status(201).json({ message: 'Dados recebidos com sucesso' });
+    // 2. Gerar alertas se algum nível for diferente de "ok"
+    const params = [
+      { key: 'Umidade do solo', level: level_humidity },
+      { key: 'Temperatura', level: level_temperature },
+      { key: 'Condutividade', level: level_condutivity },
+      { key: 'pH', level: level_ph },
+      { key: 'Nitrogênio', level: level_nitrogen },
+      { key: 'Fósforo', level: level_phosphorus },
+      { key: 'Potássio', level: level_potassium },
+    ];
+
+    const alerts = params
+      .filter(p => p.level.toLowerCase() !== 'ok')
+      .map(p => ({
+        sensorId: sensor.sensorId,
+        message: `${p.key} fora do intervalo ideal`,
+        level: p.level,
+        timestamp: new Date(),
+      }));
+
+    if (alerts.length > 0) {
+      await db.insert(alertTable).values(alerts).execute();
+    }
+
+    // 3. Retornar alertas gerados
+    return res.status(201).json({
+      message: 'Dados recebidos com sucesso',
+      alerts,
+    });
+
   } catch (error) {
     return handleError(res, ERROR_SERVER);
   }
